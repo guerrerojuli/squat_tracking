@@ -1,6 +1,15 @@
 import cv2
 import mediapipe as mp
 import math
+from dataclasses import dataclass
+
+
+@dataclass
+class Vector:
+    x: float
+    y: float
+    angle: float
+    length: float
 
 
 def aligned(x1, x2):
@@ -9,12 +18,22 @@ def aligned(x1, x2):
         return True
     return False
 
-def get_angle(p1, p2):
+
+def get_angle_form_vector(v1, v2):
     angle = math.acos(
-            (p1.x*p2.x + p1.y*p2.y) /
-            (sqrt(pow(p1.x, 2) + pow(p1.y, 2))*sqrt(pow(p2.x, 2) + pow(p2.y, 2)))
+            (v1.x*v2.x + v1.y*v2.y) /
+            (math.sqrt(pow(v1.x, 2) + pow(v1.y, 2)) *
+             math.sqrt(pow(v2.x, 2) + pow(v2.y, 2)))
             )
     return angle
+
+
+def create_vector(p1, p2):
+    x = p1.x - p2.x
+    y = p2.y - p2.y
+    angle = math.atan(y/x)
+    length = math.sqrt(pow(x, 2) + pow(y, 2))
+    return Vector(x, y, angle, length)
 
 
 mp_drawing = mp.solutions.drawing_utils
@@ -51,7 +70,13 @@ with mp_pose.Pose(
             l_knee = landmarks[mp_pose.PoseLandmark.LEFT_KNEE]
             r_heel = landmarks[mp_pose.PoseLandmark.RIGHT_HEEL]
             l_heel = landmarks[mp_pose.PoseLandmark.LEFT_HEEL]
-            points = [r_shoulder, l_shoulder, r_ankle, l_ankle, r_hip, l_hip, r_knee, l_knee, r_heel, l_heel]
+            points = [
+                    r_shoulder, l_shoulder,
+                    r_ankle, l_ankle,
+                    r_hip, l_hip,
+                    r_knee, l_knee,
+                    r_heel, l_heel
+            ]
 
             # Validacion de pose
             # Existencia de los puntos
