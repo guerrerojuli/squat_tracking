@@ -1,5 +1,6 @@
 import cv2
 import mediapipe as mp
+import math
 
 
 def aligned(x1, x2):
@@ -7,6 +8,13 @@ def aligned(x1, x2):
     if -0.02 < diff < 0.02:
         return True
     return False
+
+def get_angle(p1, p2):
+    angle = math.acos(
+            (p1.x*p2.x + p1.y*p2.y) /
+            (sqrt(pow(p1.x, 2) + pow(p1.y, 2))*sqrt(pow(p2.x, 2) + pow(p2.y, 2)))
+            )
+    return angle
 
 
 mp_drawing = mp.solutions.drawing_utils
