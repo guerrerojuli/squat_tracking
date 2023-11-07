@@ -49,11 +49,21 @@ def reset_flags(flagsDict):
         flagsDict[key] = False
 
 
-errorFlags = {
+msgFlags = {
         "landmarksExistance": False,
         "camera": False,
-        "barraCaida": False,
+        }
+
+
+errorFlags = {
+        "misalignedBarbell": False,
         "pieApoyado": False,
+        "noAbajo": False,
+        }
+
+statusFlags = {
+        "bajando": False,
+        "abajo": False
         }
 
 mp_drawing = mp.solutions.drawing_utils
@@ -117,67 +127,73 @@ with mp_pose.Pose(
                     r_heel, l_heel
             ]
 
-            # Validacion de pose
-            # Existencia de los puntos
-            existence = True
-            for point in points:
-                if (not 0 < point.x < 1 or not 0 < point.y < 1):
-                    existence = False
-
-            if (not existence):
-                if (not errorFlags["landmarksExistance"]):
-                    print("Muestre su cuerpo a la camara")
-                    reset_flags(errorFlags)
-                    errorFlags["landmarksExistance"] = True
-                continue
-            errorFlags["landmarksExistance"] = False
-
-            # Camara de perfil
-            if (not aligned(r_shoulder.x, l_shoulder.x, 0.05)):
-                if (not errorFlags["camera"]):
-                    print("Coloque la camara de perfil")
-                    reset_flags(errorFlags)
-                    errorFlags["camera"] = True
-                continue
-            errorFlags["camera"] = False
-
-            # Buena postura TODO
-            # Barra alineada
-            if (not between(r_shoulder.x, r_foot_index.x, r_heel.x, 0.02)):
-                if (not errorFlags["barraCaida"]):
-                    print("Mala postura, barra caida")
-                    reset_flags(errorFlags)
-                    errorFlags["barraCaida"] = True
-                continue
-            errorFlags["barraCaida"] = False
-
-            # Pie apoyado
-            if (not aligned(r_foot_index.y, r_heel.y, 0.01)):
-                if (not errorFlags["pieApoyado"]):
-                    print("Mantenga el pie apoyado en el suelo")
-                    reset_flags(errorFlags)
-                    errorFlags["pieApoyado"] = True
-                continue
-            errorFlags["pieApoyado"] = False
-
-            # Maquina de estados TODO
-            v1 = create_vector(r_hip, r_knee)
-            v2 = create_vector(r_heel, r_knee)
-            angle = get_angle_form_vector(v1, v2)
-            if (angle > (3/4)*math.pi):
-                print("arriba")
-            elif (angle > math.pi/2):
-                print("bajando")
-            elif (angle < math.pi/2):
-                print("abajo")
-
-
         except:
-            if (not errorFlags["landmarksExistance"]):
+            if (not msgFlags["landmarksExistance"]):
                 print("Muestre su cuerpo a la camara")
                 reset_flags(errorFlags)
-                errorFlags["landmarksExistance"] = True
-            pass
+                msgFlags["landmarksExistance"] = True
+            continue
+
+        # Validacion de pose
+        # Existencia de los puntos
+        existence = True
+        for point in points:
+            if (not 0 < point.x < 1 or not 0 < point.y < 1):
+                existence = False
+
+        if (not existence):
+            if (not msgFlags["landmarksExistance"]):
+                print("Muestre su cuerpo a la camara")
+                reset_flags(msgFlags)
+                msgFlags["landmarksExistance"] = True
+            continue
+        msgFlags["landmarksExistance"] = False
+
+        # Camara de perfil
+        if (not aligned(r_shoulder.x, l_shoulder.x, 0.05)):
+            if (not msgFlags["camera"]):
+                print("Coloque la camara de perfil")
+                reset_flags(msgFlags)
+                msgFlags["camera"] = True
+            continue
+        msgFlags["camera"] = False
+
+        # Maquina de estados
+        v1 = create_vector(r_hip, r_knee)
+        v2 = create_vector(r_heel, r_knee)
+        angle = get_angle_form_vector(v1, v2)
+        if (angle < math.pi/2):
+            statusFlags["abajo"] = True
+        elif (angle < (3/4)*math.pi):
+            statusFlags["bajando"] = True
+        else:
+            if (statusFlags["bajando"]):
+                print("\n")
+                if (not statusFlags["abajo"]):
+                    errorFlags["noAbajo"] = True
+                if (not (errorFlags["noAbajo"] or errorFlags["misalignedBarbell"] or errorFlags["pieApoyado"])):
+                    print("Sentadilla realizada correctamente, sos crack bro")
+                else:
+                    if (errorFlags["misalignedBarbell"]):
+                        print("Sentadilla mal realziada: no desalinee la barra durante el ejercicio")
+                    if (errorFlags["pieApoyado"]):
+                        print("Sentadilla mal realizada: apoye completamente el pie durante el ejercicio")
+                    if (errorFlags["noAbajo"]):
+                        print("Sentadilla mal realizada: no bajó completamente")
+                reset_flags(errorFlags)
+                reset_flags(statusFlags)
+
+        # Buena postura
+        # Barra alineada
+        if (not between(r_shoulder.x, r_foot_index.x, r_heel.x, 0.02)):
+            errorFlags["misalignedBarbell"] = True
+
+        # Pie apoyado
+        if (
+                not aligned(r_foot_index.y, r_heel.y, 0.05) and
+                not aligned(l_foot_index.y, l_heel.y, 0.05)
+                ):
+            errorFlags["pieApoyado"] = True
 
     cap.release()
     cv2.destroyAllWindows()
