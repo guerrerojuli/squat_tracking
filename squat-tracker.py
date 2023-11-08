@@ -2,6 +2,7 @@ import cv2
 import mediapipe as mp
 import math
 from dataclasses import dataclass
+import os
 
 
 @dataclass
@@ -52,18 +53,19 @@ def reset_flags(flagsDict):
 msgFlags = {
         "landmarksExistance": False,
         "camera": False,
+        "ready": False,
         }
 
 
 errorFlags = {
         "misalignedBarbell": False,
-        "pieApoyado": False,
-        "noAbajo": False,
+        "feet": False,
+        "notFull": False,
         }
 
 statusFlags = {
-        "bajando": False,
-        "abajo": False
+        "onProcess": False,
+        "down": False
         }
 
 mp_drawing = mp.solutions.drawing_utils
@@ -76,14 +78,14 @@ with mp_pose.Pose(
     while cap.isOpened():
         ret, frame = cap.read()
 
-        # Recolor image to RGB
+        # Recolorear la imagen a RGB
         image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         image.flags.writeable = False
 
-        # Make detection
+        # Realizar la detección
         results = pose.process(image)
 
-        # Recolor back to BGR
+        # Recolorear nuevamente a BGR
         image.flags.writeable = True
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
@@ -98,8 +100,9 @@ with mp_pose.Pose(
                     color=(174, 50, 60), thickness=10, circle_radius=2)
                 )
 
-        cv2.imshow('Mediapipe Feed', image)
+        cv2.imshow('Squat Tracker', image)
 
+        # Cortar el programa al precionar Q
         if cv2.waitKey(10) & 0xFF == ord('q'):
             break
 
@@ -126,10 +129,9 @@ with mp_pose.Pose(
                     r_knee, l_knee,
                     r_heel, l_heel
             ]
-
         except:
             if (not msgFlags["landmarksExistance"]):
-                print("Muestre su cuerpo a la camara")
+                print("Muestre su cuerpo a la camara\n")
                 reset_flags(errorFlags)
                 msgFlags["landmarksExistance"] = True
             continue
@@ -143,7 +145,7 @@ with mp_pose.Pose(
 
         if (not existence):
             if (not msgFlags["landmarksExistance"]):
-                print("Muestre su cuerpo a la camara")
+                print("Muestre su cuerpo a la camara\n")
                 reset_flags(msgFlags)
                 msgFlags["landmarksExistance"] = True
             continue
@@ -152,34 +154,37 @@ with mp_pose.Pose(
         # Camara de perfil
         if (not aligned(r_shoulder.x, l_shoulder.x, 0.05)):
             if (not msgFlags["camera"]):
-                print("Coloque la camara de perfil")
+                print("Coloque la camara de perfil\n")
                 reset_flags(msgFlags)
                 msgFlags["camera"] = True
             continue
         msgFlags["camera"] = False
+
+        if (not msgFlags["ready"]):
+            print("Realice la sentadilla\n")
+            reset_flags(msgFlags)
+            msgFlags["ready"] = True
+        
+
 
         # Maquina de estados
         v1 = create_vector(r_hip, r_knee)
         v2 = create_vector(r_heel, r_knee)
         angle = get_angle_form_vector(v1, v2)
         if (angle < math.pi/2):
-            statusFlags["abajo"] = True
+            statusFlags["down"] = True
         elif (angle < (3/4)*math.pi):
-            statusFlags["bajando"] = True
+            statusFlags["onProcess"] = True
         else:
-            if (statusFlags["bajando"]):
+            if (statusFlags["onProcess"]):
                 print("\n")
-                if (not statusFlags["abajo"]):
-                    errorFlags["noAbajo"] = True
-                if (not (errorFlags["noAbajo"] or errorFlags["misalignedBarbell"] or errorFlags["pieApoyado"])):
-                    print("Sentadilla realizada correctamente, sos crack bro")
-                else:
-                    if (errorFlags["misalignedBarbell"]):
-                        print("Sentadilla mal realziada: no desalinee la barra durante el ejercicio")
-                    if (errorFlags["pieApoyado"]):
-                        print("Sentadilla mal realizada: apoye completamente el pie durante el ejercicio")
-                    if (errorFlags["noAbajo"]):
-                        print("Sentadilla mal realizada: no bajó completamente")
+                if (not statusFlags["down"]):
+                    errorFlags["notFull"] = True
+                print(f"""
+                      - Pie apoyado completamente: {"Bien" if(not errorFlags["feet"]) else "Mal"}
+                      - Barra alineada: {"Bien" if(not errorFlags["misalignedBarbell"]) else "Mal"}
+                      - Recorrido completo: {"Bien" if(not errorFlags["notFull"]) else "Mal"}\n
+                      """)
                 reset_flags(errorFlags)
                 reset_flags(statusFlags)
 
@@ -193,7 +198,7 @@ with mp_pose.Pose(
                 not aligned(r_foot_index.y, r_heel.y, 0.05) and
                 not aligned(l_foot_index.y, l_heel.y, 0.05)
                 ):
-            errorFlags["pieApoyado"] = True
+            errorFlags["feet"] = True
 
     cap.release()
     cv2.destroyAllWindows()
