@@ -2,7 +2,6 @@ import cv2
 import mediapipe as mp
 import math
 from dataclasses import dataclass
-import os
 
 
 @dataclass
